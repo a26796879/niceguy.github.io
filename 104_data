@@ -1,0 +1,56 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Mar 15 09:02:15 2019
+
+@author: user
+"""
+
+import requests
+from bs4 import BeautifulSoup
+import time
+
+import pygsheets
+gc = pygsheets.authorize(service_file='D:\Python Codes\python-230518-9f6b02dba966.json')
+sht = gc.open('104data')
+wks = sht.sheet1
+
+headers = {'user-agent': 'Mozilla/5.0 (Macintosh Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36'}
+
+for page in range(1,50):
+#url以此例而言，是找104上「早餐」職稱的全職
+    
+    #url資訊有`:ro0=全部，ro1=全職、ro2=兼職、kwop=1(只針對職務名稱搜尋)、keyword(可空白)、area(可空白)
+    url ='https://www.104.com.tw/jobs/search/?ro=1&kwop=1&keyword=早餐&area=6001001000%2C6001002000&order=11&asc=0&page=' + str(page) + '&mode=s&jobsource=2018indexpoc'
+    res = requests.get(url,headers = headers)
+
+    soup = BeautifulSoup(res.text,'lxml')
+
+    hrefs = soup.select('a[href^=//www.104.com.tw/job/?jobno=]')
+    try:
+        for b,link in enumerate(hrefs):
+        
+            time.sleep(1)
+        
+            print (link.get('href'))
+    
+            ress = requests.get('https:'+link.get('href'),headers = headers)
+        
+            soups = BeautifulSoup(ress.text,'lxml')
+        
+            salary = soups.find(class_='salary').text.replace('元                                                                            ','')
+            if salary[:4] == '待遇面議':
+                salary = '待遇面議'
+            content = soups.find('p').text.replace('\r','').replace('\xa0','')
+            company = soups.find('a',class_='cn').text
+            job = soups.find_all('h1')[1].text.strip().split('\n')[0].replace(' ',"")
+            resume = soups.select('a[href^=https://www.104.com.tw/jobs/apply/analysis]')[0].text.replace('\n','')
+            print (company)
+            print (job)
+            print (content)
+            print (salary)
+            #print (resume)
+            wks.append_table(values=[company,job,salary,'=if(C2="待遇面議","待遇面議",mid(C2,4,6))','=if(C2="待遇面議","待遇面議",right(C2,6))',content])
+    except:
+        print ('X')
+
+
